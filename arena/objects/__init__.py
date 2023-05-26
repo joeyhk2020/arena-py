@@ -7,6 +7,7 @@ from .cylinder import Cylinder
 from .dodecahedron import Dodecahedron
 from .entity import Entity
 from .gltf import GLTF
+from .handLeft_handRight import HandLeft, HandRight
 from .icosahedron import Icosahedron
 from .image import Image
 from .light import Light
@@ -33,6 +34,8 @@ OBJECT_TYPE_MAP = {
     "dodecahedron": Dodecahedron,
     "entity": Entity,
     "gltf-model": GLTF,
+    "handLeft": HandLeft,
+    "handRight": HandRight,
     "icosahedron": Icosahedron,
     "image": Image,
     "light": Light,

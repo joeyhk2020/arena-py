@@ -12,6 +12,7 @@ from .events import *
 from .objects import *
 from .utils import *
 
+
 class Scene(ArenaMQTT):
     """
     Gives access to an ARENA scene.
@@ -32,6 +33,8 @@ class Scene(ArenaMQTT):
                 new_obj_callback = None,
                 user_join_callback = None,
                 user_left_callback = None,
+                hand_join_callback = None,
+                hand_left_callback = None,
                 delete_obj_callback = None,
                 end_program_callback = None,
                 video = False,
@@ -82,11 +85,14 @@ class Scene(ArenaMQTT):
         self.delete_obj_callback = delete_obj_callback
         self.user_join_callback = user_join_callback
         self.user_left_callback = user_left_callback
+        self.hand_join_callback = hand_join_callback
+        self.hand_left_callback = hand_left_callback
 
         self.unspecified_object_ids = set() # objects that exist in the scene,
                                             # but this scene instance does not
                                             # have a reference to
         self.users = {} # dict of all users
+        self.user_hands = {}
 
         # Always use the the hostname specified by the user, or defaults.
         print(f"Loading: https://{self.web_host}/{self.namespace}/{self.scene}, realm={self.realm}")
@@ -110,14 +116,24 @@ class Scene(ArenaMQTT):
             try:
                 payload_str = msg.payload.decode("utf-8", "ignore")
                 payload = json.loads(payload_str)
+                # print("Payload:")
+                # print(payload_str)
             except Exception as e:
                 print("Malformed payload, ignoring:")
                 print(e)
                 return
 
+            # for debugging
+            # if (payload["action"] == "clientEvent"):
+            #     print(payload["type"], payload["object_id"])
+
+
             try:
                 # update object attributes, if possible
                 if "object_id" in payload:
+
+
+
                     # parese payload
                     object_id = payload.get("object_id", None)
                     action = payload.get("action", None)
@@ -135,12 +151,16 @@ class Scene(ArenaMQTT):
                         obj = ObjClass(**payload)
 
                     # react to action accordingly
+                    # if HandLeft.object_type in object_id:
+                    #     print(payload)
                     if action:
                         if action == "clientEvent":
                             event = Event(**payload)
                             if obj.evt_handler:
                                 self.callback_wrapper(obj.evt_handler, event, payload)
                                 continue
+
+                            #print(data)
 
                         elif action == "delete":
                             if Camera.object_type in object_id: # object is a camera
@@ -152,6 +172,41 @@ class Scene(ArenaMQTT):
                                                 payload
                                             )
                                     del self.users[object_id]
+
+                                if object_id in self.user_hands: # User was on a vr headset
+                                    self.user_hands.pop(object_id)
+
+                            #Currently kinda of broken due to message after the delete action
+                            # elif obj['data']['object_type'] == "handLeft":
+                            #    #left hand disconnected but camera may remain
+                            #     object_dep = obj.user
+                            #     self.user_hands[object_dep]["left"] = obj
+                            #     if self.hand_left_callback:
+                            #         self.callback_wrapper(
+                            #                 self.hand_left_callback,
+                            #                 obj,
+                            #                 payload
+                            #             )
+                            #         if object_dep in self.user_hands:
+                            #             print("L still in dict")
+                            #             self.user_hands[object_dep].pop("left", None)
+                            # elif obj['data']['object_type'] == "handRight":
+                            #     #right hand disconnected but camera may remain
+                            #     object_dep = obj.user
+                            #     self.user_hands[object_dep]["right"] = obj
+                            #     if self.hand_left_callback:
+                            #         self.callback_wrapper(
+                            #                 self.hand_left_callback,
+                            #                 obj,
+                            #                 payload
+                            #             )
+                            #     if object_dep in self.user_hands:
+                            #         self.user_hands[object_dep].pop("right", None)
+
+
+
+
+
                             elif self.delete_obj_callback:
                                 self.callback_wrapper(self.delete_obj_callback, obj, payload)
                             Object.remove(obj)
@@ -159,15 +214,15 @@ class Scene(ArenaMQTT):
 
                         else: # create/update
                             obj.update_attributes(**payload)
-
                     # call new message callback for all messages
                     if self.on_msg_callback:
                         if not event:
                             self.callback_wrapper(self.on_msg_callback, obj, payload)
                         else:
                             self.callback_wrapper(self.on_msg_callback, event, payload)
-
                     # run user_join_callback when user is found
+                    # print(object_type)
+
                     if object_type and object_type == Camera.object_type:
                         if object_id not in self.users:
                             if object_id in self.all_objects:
@@ -181,6 +236,38 @@ class Scene(ArenaMQTT):
                                         self.users[object_id],
                                         payload
                                     )
+
+                    elif object_type and object_type == HandLeft.object_type:
+                        object_dep = obj.user
+                        if object_dep not in self.user_hands: #user not in hands dict yet
+                            self.user_hands[object_dep] = {}
+                        if "left" not in self.user_hands[object_dep]: #hand not in dict under user yet
+                            self.user_hands[object_dep]["left"] = obj
+
+                            if self.hand_join_callback:
+                                self.callback_wrapper(
+                                        self.hand_join_callback,
+                                        obj,
+                                        payload
+                                )
+
+                    elif object_type and object_type == HandRight.object_type:
+                        object_dep = obj.user
+                        if object_dep not in self.user_hands:
+                            self.user_hands[object_dep] = {}
+                        if "right" not in self.user_hands[object_dep]:
+                            self.user_hands[object_dep]["right"] = obj
+
+                            if self.hand_join_callback:
+                                self.callback_wrapper(
+                                        self.hand_join_callback,
+                                        obj,
+                                        payload
+                                )
+
+
+
+
 
                     # if its an object the library has not seen before, call new object callback
                     elif object_id not in self.unspecified_object_ids and self.new_obj_callback:
@@ -463,6 +550,11 @@ class Scene(ArenaMQTT):
     def get_user_list(self):
         """Returns a list of users"""
         return self.users.values()
+
+
+    def get_user_hands(self, user, hand):
+        """Returns dict of hands, keys are the corresponding camera object ids"""
+        return self.user_hands.get(user, None).get(hand, None)
 
 class Arena(Scene):
     """

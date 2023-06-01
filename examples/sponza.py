@@ -6,15 +6,9 @@ import time
 from threading import Thread
 
 
-
-
-#SCENE COMPATIBLE WITH THIS SERVER: https://arena-dev1.conix.io/dev/joeym2/
-
-
 # setup library
-#scene = Scene(host="arena-dev1.conix.io", namespace = "Edward", scene="sponzalocal")
-scene = Scene(host="arena-dev1.conix.io", namespace = "joeym", scene="vr_example1")
-
+scene = Scene(host="arena-dev1.conix.io", namespace = "Edward", scene="sponzalocal")
+#scene = Scene(host="arena-dev1.conix.io", namespace = "joeym", scene="vr_example1")
 
 remote_mode = False
 
@@ -27,7 +21,6 @@ original_pos = Position(0,0,0)
 interactive_objects = []
 master = None
 follower = None
-
 
 def command_task():
     global remote_mode
@@ -55,7 +48,6 @@ def command_task():
                     obj.data['remote-render'] = {'enabled': False}
                     scene.update_object(obj)
 
-
         elif txt == "Hybrid":
             print("Entered Hybrid Rendering Mode")
             remote_mode = False
@@ -71,8 +63,6 @@ def command_task():
 
         time.sleep(0.5)
 
-
-
 def get_release_position(pos, rot, dist):
     x, y, z = pos['x'], pos['y'], pos['z']
     
@@ -84,8 +74,6 @@ def get_release_position(pos, rot, dist):
     z_new = z + dist * math.cos(zrot) * math.cos(yrot)
     return Position(-x_new, y_new, -z_new)
 
-
-
 def get_following_position(dist, side):
     if (side == "left"):
         x = 0.25 * dist/2
@@ -94,7 +82,6 @@ def get_following_position(dist, side):
     y = dist * math.sin(angle)
     z = dist * math.cos(angle)
     return Position(x, -y, -z)
-
 
 def find_pos_dist(pos1, pos2):
     x1, y1, z1 = pos1['x'], pos1['y'], pos1['z']
@@ -107,7 +94,8 @@ def find_pos_dist(pos1, pos2):
 # def right_hand_handler(obj):
 #     pass
 
-
+# def hand_handler(obj):
+#     pass
 
 def on_msg_callback(scene, obj, msg):
     global master
@@ -125,26 +113,12 @@ def on_msg_callback(scene, obj, msg):
                 scene.add_object(follower)
                 follower = None
 
-    
-
-
-
-# def hand_handler(obj):
-#     pass
-
-
-
-
-
-
 def user_join_callback(scene, obj, msg):
     global left
     global right
     #Add user to dictionary
     name = msg['object_id'][7:]
     print("User '%s' Joined" % name)
-
-    #Set all objects false
 
 def user_left_callback(scene, obj, msg):
     #Remove user from dictionary
@@ -170,11 +144,8 @@ def hand_join_callback(scene, obj, msg):
     print(scene.all_objects.keys())
 
 
-
-
 def hand_left_callback(scene, obj, msg):
     print("hand Disconnected")
-
 
 @scene.run_async
 async def func():
@@ -186,7 +157,6 @@ async def func():
     scene.hand_join_callback = hand_join_callback
     scene.hand_left_callback = hand_left_callback
 
-    
     def obj_handler(scene, evt, msg):
         global follower
         global master
@@ -224,8 +194,6 @@ async def func():
             elif evt.type == "mouseup":
                 pass
 
-            
-
     def box1_handler(scene, evt, msg):
         global interactive_objects
         box1 = interactive_objects[0]
@@ -233,7 +201,6 @@ async def func():
             scene.update_object(box1, color=Color(100,255,100))
         if evt.type == "mouseup":
             scene.update_object(box1, color=Color(255,100,0))
-
 
     box1 = Box(object_id="box1", position=Position(2,0,-3), scale=Scale(0.3,0.3,0.3),
               click_listener=True, evt_handler=box1_handler, color=Color(255,100,0),
@@ -252,16 +219,11 @@ async def func():
               persist=True)
 
     interactive_objects = [box1, box2, sphere, torus]
-    
-
-    
-
 
     scene.add_objects([box1, box2, sphere, torus])
-    
 
 
+#Start thread and tasks
 t2 = Thread(target=command_task)
 t2.start()
-# start tasks
 scene.run_tasks()

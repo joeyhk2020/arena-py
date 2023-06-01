@@ -102,19 +102,9 @@ def find_pos_dist(pos1, pos2):
     return math.dist((x1,y1,z1), (x2,y2,z2))
 
 # def left_hand_handler(obj):
-#     global sword
-#     global follow
-#     #print(obj["data"]["position"], obj["object_id"])
-#     if follow:
-#         pos = obj["data"]["position"]
-#         rot = obj["data"]["rotation"]
-#         rot_tuple = (rot.x, rot.y, rot.z, rot.w) 
-#         scene.update_object(sword, 
-#                             position = (pos.x, pos.y, pos.z), 
-#                             rotation = rot_tuple)
+#     #pass
 
 # def right_hand_handler(obj):
-#     #print(obj)
 #     pass
 
 
@@ -126,48 +116,21 @@ def on_msg_callback(scene, obj, msg):
     if msg["action"] == "clientEvent":
         name = msg["object_id"]
         if msg["type"] == "triggerdown":
-
             master = name
-            #print("TRIGGER")
             
         elif msg["type"] == "triggerup":
-            #print("RELEASE")
             if obj["object_id"][4] == master[4]:
-            
                 follower.data["parent"] = None
                 follower.data.position = original_pos
                 scene.add_object(follower)
                 follower = None
-                #print(follower)
-                
-                #print(name)
+
     
 
 
 
 # def hand_handler(obj):
-#     global sword
-#     global master
-#     global follower
-
-#     name = obj["object_id"]
-#     if follower and master == name:
-#         pos = obj["data"]["position"]
-#         rot = obj["data"]["rotation"]
-#         rot_tuple = (rot.x, rot.y, rot.z, rot.w) 
-        
-#         rot_array = [rot.x, rot.y, rot.z, rot.w]
-#         rot_quat = R.from_quat(rot_array)
-#         rot_euler = rot_quat.as_euler("xyz", degrees=True)
-        
-#         rot_final = (rot_euler[0]+70, rot_euler[1], rot_euler[2])
-
-
-       
-
-#         scene.update_object(follower, 
-#                             position = (pos.x, pos.y, pos.z),
-#                             rotation = rot_final)
+#     pass
 
 
 
@@ -259,20 +222,6 @@ async def func():
                 scene.add_object(object)
                 follower = object
             elif evt.type == "mouseup":
-                # if (master[4] == 'R'):
-                #     hand_pos = right.data.position
-                #     hand_rot = right.data.rotation
-                # else: 
-                #     hand_pos = left.data.position
-                #     hand_rot = left.data.rotation
-                # object.data.position = get_release_position(hand_pos, hand_rot, hand_obj_dist)
-                # print(get_release_position(hand_pos, hand_rot, hand_obj_dist))
-
-                # object.data["parent"] = None
-                # scene.add_object(object)
-                # print("Up")
-                # follower = None
-                # #master = None
                 pass
 
             
@@ -286,7 +235,6 @@ async def func():
             scene.update_object(box1, color=Color(255,100,0))
 
 
-
     box1 = Box(object_id="box1", position=Position(2,0,-3), scale=Scale(0.3,0.3,0.3),
               click_listener=True, evt_handler=box1_handler, color=Color(255,100,0),
               persist=True)
@@ -294,10 +242,6 @@ async def func():
     box2 = Box(object_id="box2", position=Position(0,1,-2), scale=Scale(0.2,0.2,0.2),
               click_listener=True, evt_handler=obj_handler, color=Color(75,75,75),
               persist=True)
-    
-    # box3 = Box(object_id="box3", position=Position(0,0,0), scale=Scale(0.2,0.2,0.2),
-    #           click_listener=True, color=Color(100,100,100), parent='handRight_3100897624_anonymous-yi',
-    #           persist=True)
             
     sphere = Sphere(object_id="sphere", position=Position(-1,1,-1.5), scale=Scale(0.2,0.2,0.2),
               click_listener=True, evt_handler=obj_handler, color=Color(50,25,0),
@@ -316,24 +260,8 @@ async def func():
     scene.add_objects([box1, box2, sphere, torus])
     
 
-    # def periodic():
-    #     global x    # non allocated variables need to be global
-    #     box.update_attributes(position=Position(x,3,0))
-    #     scene.update_object(box)
-    #     x += 0.1
-
-    
-
-
-
-    
-
 
 t2 = Thread(target=command_task)
 t2.start()
-# start tasks
-scene.run_tasks()
-
-
 # start tasks
 scene.run_tasks()

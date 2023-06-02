@@ -4,11 +4,23 @@ from scipy.spatial.transform import Rotation as R
 import numpy as np
 import time
 from threading import Thread
+import json
 
 
 # setup library
 scene = Scene(host="arena-dev1.conix.io", namespace = "Edward", scene="sponzahybrid")
 #scene = Scene(host="arena-dev1.conix.io", namespace = "joeym", scene="vr_example1")
+
+class BaseObjectJSONEncoder(json.JSONEncoder):
+    """
+    Custom JSON encoder for nested BaseObjects.
+    """
+    def default(self, obj):
+        if isinstance(obj, (tuple,list,dict)):
+            return obj
+        else:
+            return vars(obj)
+        
 
 remote_mode = True
 
@@ -21,6 +33,34 @@ original_pos = Position(0,0,0)
 interactive_objects = []
 master = None
 follower = None
+
+def update_controllers(in_remote_mode):
+    topic = f"{scene.root_topic}/{scene.mqttc_id}/leftHand"
+    d = datetime.utcnow().isoformat()[:-3]+"Z"
+    payload = json.dumps({'object_id': "leftHand", 
+                            "type": "object", 
+                            "action": "update",
+                            "timestamp": d,
+                            "data": {
+                                "object_type": "handLeft",
+                                "visible": not in_remote_mode
+                                }})
+    scene.mqttc.publish(topic, payload, qos=0)
+    print(payload)
+    print(str(payload))
+
+    topic = f"{scene.root_topic}/{scene.mqttc_id}/rightHand"
+    payload = json.dumps({'object_id': "rightHand", 
+                            "type": "object", 
+                            "action": "update",
+                            "timestamp": d,
+                            "data": {
+                                "object_type": "handRight",
+                                "visible": not in_remote_mode
+                                }})
+    scene.mqttc.publish(topic, payload, qos=0)
+    #"remote-render": {'enabled': in_remote_mode}
+
 
 def command_task():
     global remote_mode
@@ -38,6 +78,10 @@ def command_task():
                     obj.data['remote-render'] = {'enabled': True}
                     scene.update_object(obj)
 
+            update_controllers(True)
+
+
+
         elif txt == "Local" or txt == "L":
             print("Local mode currently disabled :(")
             # print("Entered Local Rendering Mode")
@@ -48,6 +92,7 @@ def command_task():
             #     if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand" and "light" not in obj["object_id"]:
             #         obj.data['remote-render'] = {'enabled': False}
             #        scene.update_object(obj)
+            # update_controllers(False)
 
         elif txt == "Hybrid" or txt == "H":
             print("Entered Hybrid Rendering Mode")
@@ -61,6 +106,8 @@ def command_task():
             for obj in interactive_objects:
                 obj.data['remote-render'] = {'enabled': False}
                 scene.update_object(obj)
+            
+            update_controllers(False)
 
         time.sleep(0.5)
 
@@ -234,6 +281,8 @@ async def func():
         obj.data['remote-render'] = {'enabled': True}
 
     scene.add_objects([box1, box2, sphere, torus])
+
+    update_controllers(True)
 
 
 #Start thread and tasks

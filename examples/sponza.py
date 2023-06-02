@@ -10,7 +10,7 @@ from threading import Thread
 scene = Scene(host="arena-dev1.conix.io", namespace = "Edward", scene="sponzahybrid")
 #scene = Scene(host="arena-dev1.conix.io", namespace = "joeym", scene="vr_example1")
 
-remote_mode = False
+remote_mode = True
 
 left = 0
 right = 0
@@ -34,26 +34,27 @@ def command_task():
 
             for name in scene.all_objects:
                 obj = scene.all_objects[name]
-                if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand":
+                if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand" and "light" not in obj["object_id"]:
                     obj.data['remote-render'] = {'enabled': True}
                     scene.update_object(obj)
 
         elif txt == "Local" or txt == "L":
-            print("Entered Local Rendering Mode")
-            remote_mode = False
+            print("Local mode currently disabled :(")
+            # print("Entered Local Rendering Mode")
+            # remote_mode = False
 
-            for name in scene.all_objects:
-                obj = scene.all_objects[name]
-                if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand":
-                    obj.data['remote-render'] = {'enabled': False}
-                    scene.update_object(obj)
+            # for name in scene.all_objects:
+            #     obj = scene.all_objects[name]
+            #     if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand" and "light" not in obj["object_id"]:
+            #         obj.data['remote-render'] = {'enabled': False}
+            #        scene.update_object(obj)
 
         elif txt == "Hybrid" or txt == "H":
             print("Entered Hybrid Rendering Mode")
             remote_mode = False
             for name in scene.all_objects:
                 obj = scene.all_objects[name]
-                if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand":
+                if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand" and "light" not in obj["object_id"]:
                     obj.data['remote-render'] = {'enabled': True}
                     scene.update_object(obj)
 
@@ -228,6 +229,9 @@ async def func():
               persist=True)
 
     interactive_objects = [box1, box2, sphere, torus]
+
+    for obj in interactive_objects:
+        obj.data['remote-render'] = {'enabled': True}
 
     scene.add_objects([box1, box2, sphere, torus])
 

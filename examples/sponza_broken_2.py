@@ -8,10 +8,11 @@ import random
 
 
 # setup library
-scene = Scene(host="arena-dev1.conix.io", namespace = "Edward", scene="sponzaremote")
+scene = Scene(host="arena-dev1.conix.io", namespace = "Edward", scene="example1")
 #scene = Scene(host="arena-dev1.conix.io", namespace = "joeym", scene="vr_example1")
 
 remote_mode = True
+is_magicleap = False
 
 left = 0
 right = 0
@@ -77,16 +78,20 @@ def get_release_position(pos, rot, dist):
     return Position(-x_new, y_new, -z_new)
 
 def get_following_position(dist, side):
-    if remote_mode:
-        return Position(0, 0, 0)
-    else:
-        if (side == "left"):
-            x = 0.25 * dist/2
-        else: x = -0.25 * dist/2
-        angle = math.pi/5
-        y = dist * math.sin(angle)
-        z = dist * math.cos(angle)
-        return Position(x, -y, -z)
+    global is_magicleap
+    global remote_mode
+    if is_magicleap:
+        print("IS ML")
+        if remote_mode:
+            return Position(0, 0, dist)
+        else:
+            if (side == "left"):
+                x = 0.25 * dist/2
+            else: x = -0.25 * dist/2
+            angle = math.pi/5
+            y = dist * math.sin(angle)
+            z = dist * math.cos(angle)
+            return Position(x, -y, -z)
 
 def find_pos_dist(pos1, pos2):
     x1, y1, z1 = pos1['x'], pos1['y'], pos1['z']
@@ -109,32 +114,48 @@ def obj_handler(scene, evt, msg):
     global right
     global hand_obj_dist
     global original_pos
+    global is_magicleap
     id = msg["object_id"]
     obj = scene.all_objects.get(id)
     if not follower:
         if evt.type == "mousedown":
             if (master[4] == 'R'):
                 if remote_mode:
-                    obj.data["parent"] = right['object_id']
+                    obj.update_attributes(parent=right['object_id'])
                 else:
-                    obj.data["parent"] = 'rightHand'
+                    obj.data["parent"]='rightHand'
                 hand_pos = right.data.position
                 side = "right"
             else: 
                 if remote_mode:
-                    obj.data["parent"] = left['object_id']
+                    obj.update_attributes(parent=left['object_id'])
                 else:
-                    obj.data["parent"] = 'leftHand'
+                    obj.data["parent"]='leftHand'
                 hand_pos = left.data.position
                 side = "left"
 
             obj_pos = obj.data.position
             original_pos = obj_pos
             dist = find_pos_dist(hand_pos, obj_pos)
-            hand_obj_dist = dist
-            obj.data.position = get_following_position(dist, side)
+            #hand_obj_dist = dist
+            
+            follow_pos = get_following_position(dist, side)
 
-            scene.add_object(obj)
+            obj.data.position = follow_pos
+            # if is_magicleap and remote_mode: #if magic leap
+            #     obj.data.position = Position(follow_pos["x"] * 100,
+            #                           follow_pos["y"] * 100,
+            #                           follow_pos["z"] * 100)
+            # else:
+            #     obj.data.position = follow_pos
+
+
+            if (remote_mode):
+                scene.update_object(obj)
+
+            else:
+                scene.add_object(obj)
+
             follower = obj
         elif evt.type == "mouseup":
             pass
@@ -153,49 +174,19 @@ def on_msg_callback(scene, obj, msg):
         elif msg["type"] == "triggerup":
             if follower:
                 if obj["object_id"][4] == master[4]:
-                    if follower["object_id"][0:6] == "sphere":
-                        print("SPHERE")
-                        print("Before Delete:")
-                        print(scene.all_objects.keys())
-                        #print(follower)
-                        #scene.delete_object(follower)
+                    
+                    follower.data['remote-render'] = {'enabled': False}
 
-                        spheres = []
-                        for object_id, obj in scene.all_objects.items():
-                            if "sphere" in object_id:
-                                spheres += [obj]
-
-                        for sphere in spheres:
-                            sphere.data['remote-render'] = {'enabled': False}
-                            scene.update_object(sphere)
-                            scene.delete_object(sphere)
-                            
-                        new_id = "sphere" + str(random.randint(0, 9999999999))
-                        print("New_id:", new_id)
-
-                        new_sphere = Sphere(object_id=new_id, position=Position(-1,1,-1.5), scale=Scale(0.2,0.2,0.2),
-                            click_listener=True, evt_handler=obj_handler, color=Color(50,25,0))
-                            
-                        print("Before Add:")
-                        print(scene.all_objects.keys())
-                        scene.add_object(new_sphere)
-                        if remote_mode:
-                            new_sphere.data['remote-render'] = {'enabled': True}
-                            scene.update_object(new_sphere)
-                        print("After Add:")
-                        print(scene.all_objects.keys())
-                        interactive_objects[2] = new_sphere
-                        follower = None
+                    follower.update_attributes(parent=None)
+                    follower.data.position = original_pos
+                    scene.update_object(follower)
+                    if remote_mode:
+                        follower.data['remote-render'] = {'enabled': True}
+                        scene.update_object(follower)
                     else:
-                        follower.data['remote-render'] = {'enabled': False}
-
-                        follower.data["parent"] = None
-                        follower.data.position = original_pos
                         scene.add_object(follower)
-                        if remote_mode:
-                            follower.data['remote-render'] = {'enabled': True}
-                            scene.update_object(follower)
-                        follower = None
+
+                    follower = None
 
 def user_join_callback(scene, obj, msg):
     global left
@@ -212,6 +203,7 @@ def user_left_callback(scene, obj, msg):
 def hand_join_callback(scene, obj, msg):
     global left
     global right
+    global is_magicleap
     user = msg['data']['dep']
 
     if msg['data']['object_type'] == 'handLeft':
@@ -224,12 +216,15 @@ def hand_join_callback(scene, obj, msg):
 
         print("Right Joined")
 
+    if "magicleap" in obj["data"]["url"]:
+        is_magicleap = True
     
     print(scene.all_objects.keys())
 
 
 def hand_left_callback(scene, obj, msg):
     print("hand Disconnected")
+    is_magicleap = False
 
 def box1_handler(scene, evt, msg):
     global interactive_objects
@@ -237,6 +232,7 @@ def box1_handler(scene, evt, msg):
     if evt.type == "mousedown":
         scene.update_object(box1, color=Color(100,255,100))
     if evt.type == "mouseup":
+        scene.update_object(box1, color=Color(255,100,0))
         pass
 
 @scene.run_once
@@ -258,7 +254,7 @@ def init():
               click_listener=True, evt_handler=obj_handler, color=Color(75,75,75),
               persist=True)
             
-    sphere = Sphere(object_id="sphere" + str(random.randint(0, 9999999999)), position=Position(-1,1,-1.5), scale=Scale(0.2,0.2,0.2),
+    sphere = Sphere(object_id="sphere", position=Position(-1,1,-1.5), scale=Scale(0.2,0.2,0.2),
               click_listener=True, evt_handler=obj_handler, color=Color(50,25,0))
     
     torus = Torus(object_id="torus", position=Position(2,1,-1.5), scale=Scale(0.2,0.2,0.2),

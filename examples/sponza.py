@@ -7,7 +7,7 @@ from threading import Thread
 
 
 # setup library
-scene = Scene(host="arena-dev1.conix.io", namespace = "Edward", scene="sponzalocal")
+scene = Scene(host="arena-dev1.conix.io", namespace = "Edward", scene="sponzahybrid")
 #scene = Scene(host="arena-dev1.conix.io", namespace = "joeym", scene="vr_example1")
 
 remote_mode = False
@@ -28,7 +28,7 @@ def command_task():
     time.sleep(1)
     while True:
         txt = input("Enter Command: ")
-        if txt == "Remote":
+        if txt == "Remote" or txt == "R":
             print("Entered Remote Rendering Mode")
             remote_mode = True
 
@@ -38,7 +38,7 @@ def command_task():
                     obj.data['remote-render'] = {'enabled': True}
                     scene.update_object(obj)
 
-        elif txt == "Local":
+        elif txt == "Local" or txt == "L":
             print("Entered Local Rendering Mode")
             remote_mode = False
 
@@ -48,7 +48,7 @@ def command_task():
                     obj.data['remote-render'] = {'enabled': False}
                     scene.update_object(obj)
 
-        elif txt == "Hybrid":
+        elif txt == "Hybrid" or txt == "H":
             print("Entered Hybrid Rendering Mode")
             remote_mode = False
             for name in scene.all_objects:
@@ -75,13 +75,11 @@ def get_release_position(pos, rot, dist):
     return Position(-x_new, y_new, -z_new)
 
 def get_following_position(dist, side):
-    if (side == "left"):
-        x = 0.25 * dist/2
-    else: x = -0.25 * dist/2
-    angle = math.pi/5
-    y = dist * math.sin(angle)
-    z = dist * math.cos(angle)
-    return Position(x, -y, -z)
+    if remote_mode:
+        return Position(0,0,dist)
+    else:
+        return Position(0,0,-dist)
+       
 
 def find_pos_dist(pos1, pos2):
     x1, y1, z1 = pos1['x'], pos1['y'], pos1['z']
@@ -101,16 +99,22 @@ def on_msg_callback(scene, obj, msg):
     global master
     global follower
     global original_pos
+    global remote_mode
     if msg["action"] == "clientEvent":
         name = msg["object_id"]
         if msg["type"] == "triggerdown":
             master = name
             
         elif msg["type"] == "triggerup":
-            if obj["object_id"][4] == master[4]:
+            if obj["object_id"][4] == master[4] and follower:
                 follower.data["parent"] = None
                 follower.data.position = original_pos
-                scene.add_object(follower)
+                #scene.add_object(follower)
+                if (remote_mode):
+                    scene.update_object(follower)
+
+                else:
+                    scene.add_object(follower)
                 follower = None
 
 def user_join_callback(scene, obj, msg):
@@ -166,18 +170,18 @@ async def func():
         global original_pos
         id = msg["object_id"]
         object = scene.all_objects.get(id)
-        if not follower:
+        if not follower and object:
             if evt.type == "mousedown":
                 if (master[4] == 'R'):
                     if remote_mode:
-                        object.data["parent"] = right['object_id']
+                        object.update_attributes(parent=right['object_id'])
                     else:
                         object.data["parent"] = 'rightHand'
                     hand_pos = right.data.position
                     side = "right"
                 else: 
                     if remote_mode:
-                        object.data["parent"] = left['object_id']
+                        object.update_attributes(parent=left['object_id'])
                     else:
                         object.data["parent"] = 'leftHand'
                     hand_pos = left.data.position
@@ -186,10 +190,15 @@ async def func():
                 obj_pos = object.data.position
                 original_pos = obj_pos
                 dist = find_pos_dist(hand_pos, obj_pos)
-                hand_obj_dist = dist
+                #hand_obj_dist = dist
                 object.data.position = get_following_position(dist, side)
 
-                scene.add_object(object)
+                #scene.add_object(object)
+                if (remote_mode):
+                    scene.update_object(object)
+
+                else:
+                    scene.add_object(object)
                 follower = object
             elif evt.type == "mouseup":
                 pass

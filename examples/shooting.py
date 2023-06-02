@@ -100,15 +100,16 @@ def gravity():
                     x_cur_speed = obj["data"]["x_speed"]
 
                     cur_pos = obj["data"]["position"]
+                    if cur_pos and cur_pos["y"] > -1:
+                        new_pos = Position(cur_pos["x"] + x_cur_speed, 
+                                        cur_pos["y"] + y_cur_speed, 
+                                        cur_pos["z"])
+                        scene.update_object(obj,
+                                            y_speed=y_cur_speed-grav_accel,
+                                            position=new_pos)
                 else:
                     scene.delete_object(obj)
-                if cur_pos and cur_pos["y"] > -1:
-                    new_pos = Position(cur_pos["x"] + x_cur_speed, 
-                                    cur_pos["y"] + y_cur_speed, 
-                                    cur_pos["z"])
-                    scene.update_object(obj,
-                                        y_speed=y_cur_speed-grav_accel,
-                                        position=new_pos)
+                
         adding = False
 
     
@@ -203,12 +204,13 @@ def run_game():
         scene.update_object(timer_value, 
                             text=str(timer))
         if timer <= 0:
-            start = False
             print("GAME OVER")
             running = False
             kill_all_targets()
             time.sleep(2)
             print(score)
+            start = False
+            running = False
             break
         time.sleep(0.5)
         spawn_new_target()
@@ -240,39 +242,33 @@ def command_task():
     time.sleep(1.5)
     while True:
         txt = input("Enter Command: ")
-        if txt == "Remote":
+        if txt == "Remote" or txt == "R":
             print("Entered Remote Rendering Mode")
             remote_mode = True
 
             for name in scene.all_objects:
                 obj = scene.all_objects[name]
-                if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand" and obj["data"]["object_type"] != "text":
+                if obj["object_id"][0:6] != "camera" \
+                and "object_type" in obj["data"] and obj["data"]["object_type"] != "text":
                     obj.data['remote-render'] = {'enabled': True}
-                    scene.update_object(obj)
+                    if obj["object_id"][0:4] != "hand":
+                        obj["data"]["object_type"] = "hand"
+                        if obj["object_id"][5] == "R":
+                            name = "rightHand"
+                        else: name = "leftHand"
+                        scene.update_object(obj, object_id=name)
 
-        elif txt == "Local":
+        elif txt == "Local" or txt == "L":
             print("Entered Local Rendering Mode")
             remote_mode = False
 
             for name in scene.all_objects:
                 obj = scene.all_objects[name]
                 print(obj)
-                if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand" and obj["data"]["object_type"] != "text":
+                if obj["object_id"][0:6] != "camera" and obj["data"]["object_type"] != "text":
+                    #and obj["object_id"][0:4] != "hand"
                     obj.data['remote-render'] = {'enabled': False}
                     scene.update_object(obj)
-
-        # elif txt == "Hybrid":
-        #     print("Entered Hybrid Rendering Mode")
-        #     remote_mode = False
-        #     for name in scene.all_objects:
-        #         obj = scene.all_objects[name]
-        #         if obj["object_id"][0:6] != "camera" and obj["object_id"][0:4] != "hand":
-        #             obj.data['remote-render'] = {'enabled': True}
-        #             scene.update_object(obj)
-
-        #     for obj in interactive_objects:
-        #         obj.data['remote-render'] = {'enabled': False}
-        #         scene.update_object(obj)
 
         time.sleep(0.5)
 

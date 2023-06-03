@@ -12,6 +12,7 @@ def make_im():
         scale=(1.2,1.5,1.2),
         url=image_url
     )
+
     scene.add_object(im)
 
 scene.run_tasks()

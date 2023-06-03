@@ -26,38 +26,12 @@ left_clicked = False
 right_clicked = False
 
 quest_users_toruses = {}
-Torus_Scale = Scale(0.05,0.05,0.05)
 
-
-def command_task():
-    print("COMMAND TASK")
-    time.sleep(3)
-    while True:
-        txt = input("Enter Command:")
-        print(txt)
 
 def find_pos_dist(pos1, pos2):
     x1, y1, z1 = pos1['x'], pos1['y'], pos1['z']
     x2, y2, z2 = pos2['x'], pos2['y'], pos2['z']
     return math.dist((x1,y1,z1), (x2,y2,z2))
-
-# def left_hand_handler(obj):
-#     global sword
-#     global follow
-#     #print(obj["data"]["position"], obj["object_id"])
-#     if follow:
-#         pos = obj["data"]["position"]
-#         rot = obj["data"]["rotation"]
-#         rot_tuple = (rot.x, rot.y, rot.z, rot.w) 
-#         scene.update_object(sword, 
-#                             position = (pos.x, pos.y, pos.z), 
-#                             rotation = rot_tuple)
-
-# def right_hand_handler(obj):
-#     #print(obj)
-#     pass
-
-
 
 def on_msg_callback(scene, obj, msg):
     global follow
@@ -68,15 +42,12 @@ def on_msg_callback(scene, obj, msg):
 
             master = name
             print("TRIGGER")
-            
+
         elif msg["type"] == "triggerup":
             print("RELEASE")
             if master:
                 master = None
             print(name)
-    
-
-
 
 def hand_handler(obj):
     global sword
@@ -87,25 +58,17 @@ def hand_handler(obj):
     if follower and master == name:
         pos = obj["data"]["position"]
         rot = obj["data"]["rotation"]
-        rot_tuple = (rot.x, rot.y, rot.z, rot.w) 
-        
+        rot_tuple = (rot.x, rot.y, rot.z, rot.w)
+
         rot_array = [rot.x, rot.y, rot.z, rot.w]
         rot_quat = R.from_quat(rot_array)
         rot_euler = rot_quat.as_euler("xyz", degrees=True)
-        
+
         rot_final = (rot_euler[0]+70, rot_euler[1], rot_euler[2])
 
-
-       
-
-        scene.update_object(follower, 
+        scene.update_object(follower,
                             position = (pos.x, pos.y, pos.z),
                             rotation = rot_final)
-
-
-
-
-
 
 def user_join_callback(scene, obj, msg):
     global left
@@ -118,7 +81,7 @@ def user_left_callback(scene, obj, msg):
     #Remove user from dictionary
     name = msg['object_id'][7:]
     print("User '%s' Left" % name)
-    
+
 def hand_join_callback(scene, obj, msg):
     user = msg['data']['dep']
 
@@ -133,7 +96,6 @@ def hand_join_callback(scene, obj, msg):
 
 def hand_left_callback(scene, obj, msg):
     print("hand Disconnected")
-
 
 @scene.run_async
 async def func():
@@ -174,11 +136,11 @@ async def func():
     box1 = Box(object_id="box1", position=Position(2,5,-3), scale=Scale(0.3,0.3,0.3),
               click_listener=True, evt_handler=box1_handler, color=Color(255,100,100),
               persist=True)
-    
+
     box2 = Box(object_id="box2", position=Position(3,4,-2), scale=Scale(0.2,0.2,0.2),
               click_listener=True, evt_handler=box2_handler, color=Color(255,100,100),
               persist=True)
-    
+
     box3 = Box(object_id="box3", position=Position(-1,1,-0.5), scale=Scale(0.1,0.1,0.1),
               click_listener=True, evt_handler=obj_handler,
               persist=True)
@@ -205,7 +167,7 @@ async def func():
         click_listener=True,
         parent="sword_box",
         visible=True
-        
+
     )
     mini_sword = GLTF(
         object_id="mini_sword",
@@ -225,7 +187,6 @@ async def func():
     xr_logo.data['remote-render'] = {'enabled': True}
     sword.data['remote-render'] = {'enabled': False}
     mini_sword.data['remote-render'] = {'enabled': True}
-    print(box1)
 
     scene.add_object(sword_box)
     scene.add_object(box1)
@@ -234,10 +195,6 @@ async def func():
     scene.add_object(xr_logo)
     scene.add_object(sword)
     scene.add_object(mini_sword)
-    
 
-
-t2 = Thread(target=command_task)
-t2.start()
 # start tasks
 scene.run_tasks()

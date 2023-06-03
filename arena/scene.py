@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 import re
@@ -26,15 +25,12 @@ class Scene(ArenaMQTT):
 
     def __init__(
                 self,
-                host = "arenaxr.org",
                 realm = "realm",
                 network_latency_interval = 10000,  # run network latency update every 10s
                 on_msg_callback = None,
                 new_obj_callback = None,
                 user_join_callback = None,
                 user_left_callback = None,
-                hand_join_callback = None,
-                hand_left_callback = None,
                 delete_obj_callback = None,
                 end_program_callback = None,
                 video = False,
@@ -65,7 +61,6 @@ class Scene(ArenaMQTT):
             sys.exit("Scene argument (scene) is unspecified or None, aborting...")
 
         super().__init__(
-            host,
             realm,
             network_latency_interval,
             on_msg_callback,
@@ -85,14 +80,12 @@ class Scene(ArenaMQTT):
         self.delete_obj_callback = delete_obj_callback
         self.user_join_callback = user_join_callback
         self.user_left_callback = user_left_callback
-        self.hand_join_callback = hand_join_callback
-        self.hand_left_callback = hand_left_callback
 
         self.unspecified_object_ids = set() # objects that exist in the scene,
                                             # but this scene instance does not
                                             # have a reference to
         self.users = {} # dict of all users
-        self.user_hands = {}
+        self.user_hands = {} # dict of all controllers/hands
 
         # Always use the the hostname specified by the user, or defaults.
         print(f"Loading: https://{self.web_host}/{self.namespace}/{self.scene}, realm={self.realm}")
@@ -106,11 +99,7 @@ class Scene(ArenaMQTT):
 
     async def process_message(self):
         while True:
-            try:
-                msg = await self.msg_queue.get()
-            except RuntimeError as e:
-                print(f"Ignoring error: {e}")
-                return
+            msg = await self.msg_queue.get()
 
             # extract payload
             try:
@@ -123,18 +112,11 @@ class Scene(ArenaMQTT):
                 print(e)
                 return
 
-            # for debugging
-            # if (payload["action"] == "clientEvent"):
-            #     print(payload["type"], payload["object_id"])
-
-
             try:
                 # update object attributes, if possible
                 if "object_id" in payload:
 
-
-
-                    # parese payload
+                    # parse payload
                     object_id = payload.get("object_id", None)
                     action = payload.get("action", None)
 
@@ -160,8 +142,6 @@ class Scene(ArenaMQTT):
                                 self.callback_wrapper(obj.evt_handler, event, payload)
                                 continue
 
-                            #print(data)
-
                         elif action == "delete":
                             if Camera.object_type in object_id: # object is a camera
                                 if object_id in self.users:
@@ -173,42 +153,12 @@ class Scene(ArenaMQTT):
                                             )
                                     del self.users[object_id]
 
-                                if object_id in self.user_hands: # User was on a vr headset
+                                if object_id in self.user_hands: # user was on a vr headset
                                     self.user_hands.pop(object_id)
-
-                            #Currently kinda of broken due to message after the delete action
-                            # elif obj['data']['object_type'] == "handLeft":
-                            #    #left hand disconnected but camera may remain
-                            #     object_dep = obj.user
-                            #     self.user_hands[object_dep]["left"] = obj
-                            #     if self.hand_left_callback:
-                            #         self.callback_wrapper(
-                            #                 self.hand_left_callback,
-                            #                 obj,
-                            #                 payload
-                            #             )
-                            #         if object_dep in self.user_hands:
-                            #             print("L still in dict")
-                            #             self.user_hands[object_dep].pop("left", None)
-                            # elif obj['data']['object_type'] == "handRight":
-                            #     #right hand disconnected but camera may remain
-                            #     object_dep = obj.user
-                            #     self.user_hands[object_dep]["right"] = obj
-                            #     if self.hand_left_callback:
-                            #         self.callback_wrapper(
-                            #                 self.hand_left_callback,
-                            #                 obj,
-                            #                 payload
-                            #             )
-                            #     if object_dep in self.user_hands:
-                            #         self.user_hands[object_dep].pop("right", None)
-
-
-
-
 
                             elif self.delete_obj_callback:
                                 self.callback_wrapper(self.delete_obj_callback, obj, payload)
+
                             Object.remove(obj)
                             continue
 
@@ -220,8 +170,6 @@ class Scene(ArenaMQTT):
                             self.callback_wrapper(self.on_msg_callback, obj, payload)
                         else:
                             self.callback_wrapper(self.on_msg_callback, event, payload)
-                    # run user_join_callback when user is found
-                    # print(object_type)
 
                     if object_type and object_type == Camera.object_type:
                         if object_id not in self.users:
@@ -239,9 +187,9 @@ class Scene(ArenaMQTT):
 
                     elif object_type and object_type == HandLeft.object_type:
                         object_dep = obj.user
-                        if object_dep not in self.user_hands: #user not in hands dict yet
+                        if object_dep not in self.user_hands: # user not in hands dict yet
                             self.user_hands[object_dep] = {}
-                        if "left" not in self.user_hands[object_dep]: #hand not in dict under user yet
+                        if "left" not in self.user_hands[object_dep]: # hand not in dict under user yet
                             self.user_hands[object_dep]["left"] = obj
 
                             if self.hand_join_callback:
@@ -264,10 +212,6 @@ class Scene(ArenaMQTT):
                                         obj,
                                         payload
                                 )
-
-
-
-
 
                     # if its an object the library has not seen before, call new object callback
                     elif object_id not in self.unspecified_object_ids and self.new_obj_callback:
@@ -364,30 +308,6 @@ class Scene(ArenaMQTT):
         """Public function to update an object"""
         if kwargs:
             obj.update_attributes(**kwargs)
-
-        # Check if any keys in delayed_prop_tasks are pending new animations
-        # and cancel corresponding final update tasks or, if they are in
-        # kwarg property updates, cancel the task as well as the animation
-        need_to_run_animations = False
-        if len(obj.delayed_prop_tasks) > 0:
-            for anim in obj.animations:
-                if anim.property in obj.delayed_prop_tasks:
-                    task_to_cancel = obj.delayed_prop_tasks[anim.property]
-                    task_to_cancel.cancel()
-                    del task_to_cancel
-
-            for k in kwargs:
-                if str(k) in obj.delayed_prop_tasks:
-                    need_to_run_animations = True
-                    task_to_cancel = obj.delayed_prop_tasks[k]
-                    task_to_cancel.cancel()
-                    del task_to_cancel
-                    obj.dispatch_animation(
-                        Animation(property=k, enabled=False, dur=0)
-                    )
-            if need_to_run_animations:
-                self.run_animations(obj)
-
         res = self._publish(obj, "update")
         self.run_animations(obj)
         return res
@@ -433,41 +353,14 @@ class Scene(ArenaMQTT):
                     payload["data"][f"animation-mixer"] = vars(animation)
                 else:
                     anim = vars(animation).copy()
-                    payload["data"][f"animation__{anim['property']}"] = anim
+                    if i == 0:
+                        payload["data"][f"animation"] = anim
+                    else:
+                        payload["data"][f"animation__{i}"] = anim
                     Utils.dict_key_replace(anim, "start", "from")
                     Utils.dict_key_replace(anim, "end", "to")
-                    self.create_delayed_task(obj, anim)
             obj.clear_animations()
             return self._publish(payload, "update", custom_payload=True)
-
-    def create_delayed_task(self, obj, anim):
-        """
-        Creates a delayed task to push the end state of an animation after the expected
-        duration. Uses async sleep to avoid blocking.
-        :param obj: arena object to update
-        :param anim: Animation to run
-        :return: created async task
-        """
-
-        async def _delayed_task():
-            try:
-                await asyncio.sleep(anim.get('dur', 0) / 1000)  # convert ms to s
-                final_state = anim["from"] if anim.get("dir", "normal") == "reverse"\
-                    else anim["to"]
-                obj.update_attributes(**{anim["property"]: final_state})
-                self.update_object(obj)
-                obj.delayed_prop_tasks.pop(anim["property"], None)
-            except asyncio.CancelledError:
-                print("Animation end task cancelled for",
-                      obj.object_id + "." + anim["property"])
-
-        if anim.get("loop", 0) or anim.get("enabled", True) is False:
-            return None
-
-        delayed_task = asyncio.create_task(_delayed_task())
-        obj.delayed_prop_tasks[anim["property"]] = delayed_task
-        delayed_task.object_id = obj.object_id
-        return delayed_task
 
     def _publish(self, obj, action, custom_payload=False):
         """Publishes to mqtt broker with "action":action"""
@@ -551,10 +444,12 @@ class Scene(ArenaMQTT):
         """Returns a list of users"""
         return self.users.values()
 
-
     def get_user_hands(self, user, hand):
         """Returns dict of hands, keys are the corresponding camera object ids"""
-        return self.user_hands.get(user, None).get(hand, None)
+        user = self.user_hands.get(user, None)
+        if user is None:
+            return None
+        return user.get(hand, None)
 
 class Arena(Scene):
     """

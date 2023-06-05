@@ -6,10 +6,14 @@ from threading import Thread
 import json
 
 
+CLIENT_STATS_TOPIC_PREFIX = 'realm/g/a/hybrid_rendering/stats_browser'
+
+
 # setup library
 scene = Scene(host='arena-dev1.conix.io', namespace='Edward', scene='sponzahybrid')
 
 remote_mode = True
+interactive_local = False
 
 left = 0
 right = 0
@@ -21,42 +25,64 @@ master = None
 follower = None
 
 oleander1 = {
-    "lowpoly": "/store/users/Edward/models/Oleander/Oleander1_22k.glb",
-    "highpoly": "/store/users/Edward/models/Oleander/Oleander1_200k.glb"
+    'lowpoly': '/store/users/Edward/models/Oleander/Oleander1_22k.glb',
+    'highpoly': '/store/users/Edward/models/Oleander/Oleander1_300k.glb'
 }
 
 oleander2 = {
-    "lowpoly": "/store/users/Edward/models/Oleander/Oleander2_15k.glb",
-    "highpoly": "/store/users/Edward/models/Oleander/Oleander2_200k.glb"
+    'lowpoly': '/store/users/Edward/models/Oleander/Oleander2_15k.glb',
+    'highpoly': '/store/users/Edward/models/Oleander/Oleander2_200k.glb'
 }
 
 gold_dragon = {
-    "lowpoly": "/store/users/Edward/models/gold_dragon/gold_dragon_28k.glb",
-    "highpoly": "/store/users/Edward/models/gold_dragon/gold_dragon_240k.glb"
+    'lowpoly': '/store/users/Edward/models/gold_dragon/gold_dragon_28k.glb',
+    'highpoly': '/store/users/Edward/models/gold_dragon/gold_dragon_240k.glb'
 }
 
 knight1 = {
-    "lowpoly": "/store/users/Edward/models/golden_knight/golden_knight_9k.glb",
-    "highpoly": "/store/users/Edward/models/golden_knight/golden_knight.glb"
+    'lowpoly': '/store/users/Edward/models/golden_knight/golden_knight_9k.glb',
+    'highpoly': '/store/users/Edward/models/golden_knight/golden_knight.glb'
 }
 
 helmet = {
-    "lowpoly": "/store/users/Edward/models/early_medieval_nasal_helmet/early_medieval_nasal_helmet_13k.glb",
-    "highpoly": "/store/users/Edward/models/early_medieval_nasal_helmet/early_medieval_nasal_helmet.glb"
+    'lowpoly': '/store/users/Edward/models/early_medieval_nasal_helmet/early_medieval_nasal_helmet_13k.glb',
+    'highpoly': '/store/users/Edward/models/early_medieval_nasal_helmet/early_medieval_nasal_helmet.glb'
 }
 
 sponza = {
-    "lowpoly": "/store/users/Edward/models/sponza/sponza_100k.glb",
-    "highpoly": "/store/users/Edward/models/sponza/sponza.glb"
+    'lowpoly': '/store/users/Edward/models/sponza/sponza_50k.glb',
+    'highpoly': '/store/users/Edward/models/sponza/sponza.glb'
 }
 
 models = {
-    "Oleander1": oleander1,
-    "Oleander2": oleander2,
-    "gold_dragon": gold_dragon,
-    "knight1": knight1,
-    "helmet": helmet,
-    "sponza": sponza
+    'Oleander1': oleander1,
+    'Oleander2': oleander2,
+    'gold_dragon': gold_dragon,
+    'knight1': knight1,
+    'helmet': helmet,
+    'sponza': sponza
+}
+
+hybrid_mediums = {
+    'book_open': 'highpoly',
+    'book_open1': 'highpoly',
+    'book_open3': 'highpoly',
+    'book_open4': 'highpoly',
+    'medieval_sword': 'highpoly',
+    'medieval_sword1': 'highpoly',
+    'medieval_sword2': 'highpoly',
+    'medieval_sword3': 'highpoly',
+    'medieval_sword4': 'highpoly',
+    'medieval_sword5': 'remote',
+    'medieval_sword6': 'highpoly',
+    'dragon1': 'highpoly',
+    'gold_dragon': 'remote',
+    'helmet': 'remote',
+    'Oleander1': 'remote',
+    'Oleander2': 'remote',
+    'paladin': 'highpoly',
+    'sponza': 'remote',
+    'knight1': 'remote'
 }
 
 def remote_render_controllers(remote_render_enabled):
@@ -68,7 +94,8 @@ def remote_render_controllers(remote_render_enabled):
                             'timestamp': d,
                             'data': {
                                 'object_type': 'handLeft',
-                                'remote-render': {'enabled': remote_render_enabled}
+                                'remote-render': {'enabled': remote_render_enabled},
+                                'visible': not remote_render_enabled
                             }
                         })
     scene.mqttc.publish(topic, payload, qos=0)
@@ -80,7 +107,8 @@ def remote_render_controllers(remote_render_enabled):
                             'timestamp': d,
                             'data': {
                                 'object_type': 'handRight',
-                                'remote-render': {'enabled': remote_render_enabled}
+                                'remote-render': {'enabled': remote_render_enabled},
+                                'visible': not remote_render_enabled
                             }
                         })
     scene.mqttc.publish(topic, payload, qos=0)
@@ -88,24 +116,26 @@ def remote_render_controllers(remote_render_enabled):
 def command_thread():
     global remote_mode
     global interactive_objects
+    global interactive_local
 
     time.sleep(1)
 
+    remote_mode = True
     interactive_local = False
 
     while True:
         txt = input('Enter Command: ')
-        if txt == 'remote' or txt == 'r':
+        if txt == 'r':
             print('Entered Remote Rendering Mode')
             remote_mode = True
             interactive_local = False
 
-        elif txt == 'local' or txt == 'l':
+        elif txt == 'l':
             print('Entered Local Rendering Mode')
             remote_mode = False
             interactive_local = True
 
-        elif txt == 'hybrid' or txt == 'h':
+        elif txt == 'h':
             print('Entered Hybrid Rendering Mode')
             remote_mode = True
             interactive_local = True
@@ -119,12 +149,26 @@ def command_thread():
                 continue
 
             if obj['object_id'][0:6] != 'camera' and obj['object_id'][0:4] != 'hand' and 'light' not in obj['object_id']:
-                if obj['object_id'] in models:
-                    resolution = 'highpoly' if remote_mode else 'lowpoly'
-                    model_url = models[obj['object_id']][resolution]
-                    obj.data.url = model_url
-                obj.data['remote-render'] = {'enabled': remote_mode}
-                scene.update_object(obj)
+                if txt == 'r' or txt == 'l':
+                    if obj['object_id'] in models:
+                        resolution = 'highpoly' if not interactive_local else 'lowpoly'
+                        model_url = models[obj['object_id']][resolution]
+                        obj.data.url = model_url
+                    obj.data['remote-render'] = {'enabled': remote_mode}
+                    scene.update_object(obj)
+                else:
+                    if obj['object_id'] in hybrid_mediums:
+                        representation = hybrid_mediums[obj['object_id']]
+                        if representation == 'remote':
+                            resolution = 'highpoly'
+                            obj.data['remote-render'] = {'enabled': True}
+                        else:
+                            resolution = representation
+                            obj.data['remote-render'] = {'enabled': False}
+                        if obj['object_id'] in models:
+                            model_url = models[obj['object_id']][resolution]
+                            obj.data.url = model_url
+                        scene.update_object(obj)
 
         for obj in interactive_objects:
             obj.data['remote-render'] = {'enabled': not interactive_local}
@@ -135,7 +179,7 @@ def command_thread():
         time.sleep(0.5)
 
 def get_following_position(dist, side):
-    if remote_mode:
+    if not interactive_local:
         return Position(0,0,dist)
     else:
         return Position(0,0,-dist)
@@ -149,7 +193,7 @@ def on_msg_callback(scene, obj, msg):
     global master
     global follower
     global original_pos
-    global remote_mode
+    global interactive_local
 
     if msg['action'] == 'clientEvent':
         name = msg['object_id']
@@ -160,10 +204,8 @@ def on_msg_callback(scene, obj, msg):
             if obj['object_id'][4] == master[4] and follower:
                 follower.data['parent'] = None
                 follower.data.position = original_pos
-                #scene.add_object(follower)
-                if (remote_mode):
+                if not interactive_local:
                     scene.update_object(follower)
-
                 else:
                     scene.add_object(follower)
                 follower = None
@@ -207,20 +249,21 @@ def obj_handler(scene, evt, msg):
     global left
     global right
     global original_pos
+    global interactive_local
 
     object_id = msg['object_id']
     obj = scene.all_objects.get(object_id, None)
-    if obj is not None and follower is not None:
+    if obj is not None and follower is None:
         if evt.type == 'mousedown':
             if master[4] == 'R':
-                if remote_mode:
+                if not interactive_local:
                     obj.update_attributes(parent=right['object_id'])
                 else:
                     obj.data['parent'] = 'rightHand'
                 hand_pos = right.data.position
                 side = 'right'
             else:
-                if remote_mode:
+                if not interactive_local:
                     obj.update_attributes(parent=left['object_id'])
                 else:
                     obj.data['parent'] = 'leftHand'
@@ -232,7 +275,7 @@ def obj_handler(scene, evt, msg):
             dist = find_pos_dist(hand_pos, obj_pos)
             obj.data.position = get_following_position(dist, side)
 
-            if remote_mode:
+            if not interactive_local:
                 scene.update_object(obj)
             else:
                 scene.add_object(obj)
@@ -247,15 +290,15 @@ def func():
     global sword
     global interactive_objects
 
-    box1 = Box(object_id='box1', position=Position(2,1.6,-3), scale=Scale(0.3,0.3,0.3),
+    box1 = Box(object_id='box1', position=Position(1,1.6,-3), scale=Scale(0.3,0.3,0.3),
               click_listener=True, evt_handler=box1_handler, color=Color(255,100,0),
               persist=True)
 
-    box2 = Box(object_id='box2', position=Position(0,1.6,-2), scale=Scale(0.2,0.2,0.2),
-              click_listener=True, evt_handler=obj_handler, color=Color(75,75,75),
+    box2 = Box(object_id='box2', position=Position(-0.75,1.6,-2.5), scale=Scale(0.2,0.2,0.2),
+              click_listener=True, evt_handler=obj_handler, color=Color(75,10,75),
               persist=True)
 
-    sphere = Sphere(object_id='sphere', position=Position(-1,1.6,-1.5), scale=Scale(0.2,0.2,0.2),
+    sphere = Sphere(object_id='sphere', position=Position(-1.5,1.6,-1.5), scale=Scale(0.2,0.2,0.2),
               click_listener=True, evt_handler=obj_handler, color=Color(50,25,0),
               persist=True)
 
@@ -275,6 +318,14 @@ scene.user_join_callback = user_join_callback
 scene.user_left_callback = user_left_callback
 scene.on_msg_callback = on_msg_callback
 scene.hand_join_callback = hand_join_callback
+
+def stats(client, userdata, msg):
+    payload_str = msg.payload.decode('utf-8', 'ignore')
+    payload = json.loads(payload_str)
+    # if 'framesPerSecond' in payload and 'bitrate' in payload and 'latency' in payload:
+    #     print('FPS:', payload['framesPerSecond'], ',', 'Bitrate:', payload['bitrate'], ',', 'Latency:', payload['latency'])
+
+scene.message_callback_add(CLIENT_STATS_TOPIC_PREFIX+'/#', stats)
 
 # start thread and tasks
 t2 = Thread(target=command_thread)

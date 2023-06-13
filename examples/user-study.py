@@ -11,7 +11,7 @@ CLIENT_STATS_TOPIC_PREFIX = 'realm/g/a/hybrid_rendering/stats_browser'
 
 
 # setup library
-scene = Scene(host='arena-dev1.conix.io', namespace='Edward', scene='sponzahybrid')
+scene = Scene(host='arena-dev1.conix.io', namespace='Edward', scene='hybrid-user-study')
 
 ar_mode = False
 remote_mode = True
@@ -26,51 +26,43 @@ interactive_objects = []
 master = None
 follower = None
 
-gold_dragon = {
-    'lowpoly': '/store/users/Edward/models/gold_dragon/gold_dragon_28k.glb',
-    'highpoly': '/store/users/Edward/models/gold_dragon/gold_dragon_240k.glb'
-}
-
 knight1 = {
-    'lowpoly': '/store/users/Edward/models/golden_knight/golden_knight_9k.glb',
+    'lowpoly': '/store/users/Edward/models/golden_knight/golden_knight_256_tx_10k.glb',
     'highpoly': '/store/users/Edward/models/golden_knight/golden_knight.glb'
 }
 
-helmet = {
-    'lowpoly': '/store/users/Edward/models/early_medieval_nasal_helmet/early_medieval_nasal_helmet_13k.glb',
-    'highpoly': '/store/users/Edward/models/early_medieval_nasal_helmet/early_medieval_nasal_helmet.glb'
+arena = {
+    'lowpoly': '/store/users/Edward/models/arena/arena_512_tx_200k.glb',
+    'highpoly': '/store/users/Edward/models/arena/arena_1M.glb'
 }
 
-sponza = {
-    'lowpoly': '/store/users/Edward/models/sponza/sponza_10k.glb',
-    'highpoly': '/store/users/Edward/models/sponza/sponza.glb'
+statue = {
+    'lowpoly': '/store/users/Edward/models/statue/statue_512_tx_20k.glb',
+    'highpoly': '/store/users/Edward/models/statue/statue_320k.glb'
+}
+
+parrot = {
+    'lowpoly': '/store/users/Edward/models/parrot/parrot_no_floor_1k_tx_3k.glb',
+    'highpoly': '/store/users/Edward/models/parrot/parrot_no_floor.glb'
 }
 
 models = {
-    'gold_dragon': gold_dragon,
     'knight1': knight1,
-    'helmet': helmet,
-    'sponza': sponza
+    'arena': arena,
+    'statue': statue,
+    'parrot': parrot,
 }
 
 hybrid_mediums = {
-    'book_open': 'highpoly',
-    'book_open1': 'highpoly',
-    'book_open3': 'highpoly',
-    'book_open4': 'highpoly',
-    'medieval_sword': 'highpoly',
-    'medieval_sword1': 'highpoly',
-    'medieval_sword2': 'highpoly',
-    'medieval_sword3': 'highpoly',
-    'medieval_sword4': 'highpoly',
-    'medieval_sword5': 'highpoly',
-    'medieval_sword6': 'highpoly',
+    'knight1': 'remote',
+    'arena': 'lowpoly',
+    'statue': 'remote',
+    'parrot': 'remote',
+    'hotdog': 'highpoly',
     'dragon1': 'highpoly',
-    'gold_dragon': 'remote',
-    'helmet': 'remote',
-    'paladin': 'highpoly',
-    'sponza': 'lowpoly',
-    'knight1': 'remote'
+    'piggy': 'highpoly',
+    'elephant': 'highpoly',
+    'duck': 'highpoly',
 }
 
 def remote_render_controllers(remote_render_enabled):
@@ -82,8 +74,7 @@ def remote_render_controllers(remote_render_enabled):
                             'timestamp': d,
                             'data': {
                                 'object_type': 'handLeft',
-                                'remote-render': {'enabled': remote_render_enabled},
-                                # 'visible': not remote_render_enabled
+                                'remote-render': {'enabled': remote_render_enabled}
                             }
                         })
     scene.mqttc.publish(topic, payload, qos=0)
@@ -95,8 +86,7 @@ def remote_render_controllers(remote_render_enabled):
                             'timestamp': d,
                             'data': {
                                 'object_type': 'handRight',
-                                'remote-render': {'enabled': remote_render_enabled},
-                                # 'visible': not remote_render_enabled
+                                'remote-render': {'enabled': remote_render_enabled}
                             }
                         })
     scene.mqttc.publish(topic, payload, qos=0)
@@ -108,9 +98,6 @@ def command_thread():
     global ar_mode
 
     time.sleep(1)
-
-    remote_mode = True
-    interactive_local = False
 
     while True:
         txt = input('Enter Command: ')
@@ -133,9 +120,10 @@ def command_thread():
             print('Entered AR Mode')
             ar_mode = True
 
-            sponza = scene.all_objects['sponza']
-            sponza.data.visible = False
-            scene.update_object(sponza)
+            model = scene.all_objects['arena']
+            model.data.visible = False
+            print(model)
+            scene.update_object(model)
 
             continue
 
@@ -143,9 +131,9 @@ def command_thread():
             print('Entered VR Mode')
             ar_mode = False
 
-            sponza = scene.all_objects['sponza']
-            sponza.data.visible = True
-            scene.update_object(sponza)
+            model = scene.all_objects['arena']
+            model.data.visible = True
+            scene.update_object(model)
 
             continue
 
@@ -182,6 +170,9 @@ def command_thread():
         for obj in interactive_objects:
             obj.data['remote-render'] = {'enabled': not interactive_local}
             scene.update_object(obj)
+
+        model = scene.all_objects['arena']
+        model.data.visible = not ar_mode
 
         remote_render_controllers(not interactive_local)
 
@@ -299,19 +290,19 @@ def func():
     global sword
     global interactive_objects
 
-    box1 = Box(object_id='box1', position=Position(1,1.8,-4), scale=Scale(0.3,0.3,0.3),
+    box1 = Box(object_id='box1', position=Position(1,1.5,-1.5), scale=Scale(0.3,0.3,0.3),
               click_listener=True, evt_handler=box1_handler, color=Color(255,100,0),
               persist=True)
 
-    box2 = Box(object_id='box2', position=Position(-1,1.8,-4), scale=Scale(0.3,0.3,0.3),
+    box2 = Box(object_id='box2', position=Position(-1,1.5,-1.5), scale=Scale(0.3,0.3,0.3),
               click_listener=True, evt_handler=obj_handler, color=Color(75,10,75),
               persist=True)
 
-    torus = Torus(object_id='torus', position=Position(1,2.2,-4), scale=Scale(0.15,0.15,0.15),
+    torus = Torus(object_id='torus', position=Position(1,2,-1.5), scale=Scale(0.15,0.15,0.15),
               click_listener=True, evt_handler=obj_handler, color=Color(25,5,0),
               persist=True)
 
-    sphere = Sphere(object_id='sphere', position=Position(-1,2.2,-4), scale=Scale(0.2,0.2,0.2),
+    sphere = Sphere(object_id='sphere', position=Position(-1,2,-1.5), scale=Scale(0.2,0.2,0.2),
               click_listener=True, evt_handler=obj_handler, color=Color(50,25,0),
               persist=True)
 

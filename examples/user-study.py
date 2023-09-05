@@ -122,7 +122,6 @@ def command_thread():
 
             model = scene.all_objects['arena']
             model.data.visible = False
-            print(model)
             scene.update_object(model)
 
             continue
@@ -171,9 +170,6 @@ def command_thread():
             obj.data['remote-render'] = {'enabled': not interactive_local}
             scene.update_object(obj)
 
-        model = scene.all_objects['arena']
-        model.data.visible = not ar_mode
-
         remote_render_controllers(not interactive_local)
 
         time.sleep(0.5)
@@ -216,7 +212,7 @@ def user_join_callback(scene, obj, msg):
     print(f'User {name} Joined')
 
 def user_left_callback(scene, obj, msg):
-    #R emove user from dictionary
+    # Remove user from dictionary
     name = msg['object_id']
     print(f'User {name} Left')
 
